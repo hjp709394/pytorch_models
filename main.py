@@ -47,7 +47,7 @@ def prepare_log(log_path):
 
 def preapre_data(data_path, dataset):
     if dataset != 'cifar10' and dataset != 'cifar100':
-        print("Invalid dataset: {}".format(dataset)
+        print("Invalid dataset: {}".format(dataset))
         sys.exit(1)
 
     # Data
@@ -95,8 +95,8 @@ def preapre_data(data_path, dataset):
 
     if dataset == 'cifar10':
         classes = classes_cifar10
-    else if dataset == 'cifar100':
-        classes = class_cifar100
+    elif dataset == 'cifar100':
+        classes = classes_cifar100
 
     return trainloader, transform_train, testloader, transform_test, classes
 
