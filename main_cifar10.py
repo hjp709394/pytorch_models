@@ -13,6 +13,7 @@ import torchvision.transforms as transforms
 import os
 import sys
 import argparse
+import logging
 
 from models import *
 from utils import progress_bar
@@ -20,18 +21,27 @@ from torch.autograd import Variable
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
-    parser.add_argument('--data_path', type=str, help='Path for cifar10')
+    parser = argparse.ArgumentParser(description='PyTorch CIFAR100 Training')
+    parser.add_argument('--data_path', type=str, help='Path for cifar100')
     parser.add_argument('--log_path', type=str, help='Path for logging')
     args = parser.parse_args()
     return args
 
 
 def prepare_log(log_path):
-    if log_path is None:
-        return sys.stdout
+    logger = logging.getLogger(__name__)
+    logger.setLevel(logging.DEBUG)
+    if log_path == None:
+        ch = logging.StreamHandler()
     else:
-        return open(log_path, 'a')
+        ch = logging.FileHandler(log_path)
+    ch.setLevel(logging.DEBUG)
+
+    formatter = logging.Formatter('[%(asctime)s - %(name)s - %(levelname)s] %(message)s')
+    ch.setFormatter(formatter)
+    logger.addHandler(ch)
+
+    return logger
 
 
 def preapre_data(data_path):
@@ -72,7 +82,7 @@ def prepare_model():
         print("Restoring from checkpoint of epoch {} with acc {}".format(start_epoch, acc))
     else:
         # net = VGG('VGG19')
-        net = ResNet18()
+        net = ResNet18(num_classes=10)
         # net = PreActResNet18()
         # net = GoogLeNet()
         # net = DenseNet121()
@@ -89,12 +99,13 @@ def prepare_model():
     return net, start_epoch + 1, acc
 
 
-def train(net, criterion, optimizer, trainloader, epoch, use_cuda, logf=None):
+def train(net, criterion, optimizer, trainloader, epoch, use_cuda, logger=None):
     print('\nEpoch: %d' % epoch)
     net.train()
     train_loss = 0
     correct = 0
     total = 0
+    logging_template = 'Loss: {:.3f} | Acc: {:.3f}% ({}/{}) | LR: {}'
     for batch_idx, (inputs, targets) in enumerate(trainloader):
         if use_cuda:
             inputs, targets = inputs.cuda(), targets.cuda()
@@ -112,18 +123,18 @@ def train(net, criterion, optimizer, trainloader, epoch, use_cuda, logf=None):
 
         lrs = ':'.join(["{:.6}".format(group['lr']) for group in optimizer.param_groups])
 
-        progress_bar(batch_idx, len(trainloader), 'Loss: %.3f | Acc: %.3f%% (%d/%d) | LR: %s'
-            % (train_loss/(batch_idx+1), 100.*correct/total, correct, total, lrs))
+        progress_bar(batch_idx, len(trainloader), logging_template.format(train_loss/(batch_idx+1), 100.*correct/total, correct, total, lrs))
 
-    if logf is not None:
-        logf.write("Train: Loss {:.6f} | ACC {:.6f} (%d/%d) | LR {s}\n".format(test_loss/(batch_idx+1), 100.*correct/total), correct, total, lrs)
+    if logger is not None:
+        logger.info("Training epoch {}: ".format(epoch) + logging_template.format(train_loss/(batch_idx+1), 100.*correct/total, correct, total, lrs))
 
 
-def test(net, criterion, optimizer, testloader, epoch, use_cuda, logf=None):
+def test(net, criterion, optimizer, testloader, epoch, use_cuda, logger=None):
     net.eval()
     test_loss = 0
     correct = 0
     total = 0
+    logging_template = 'Loss: {:.3f} | Acc: {:.3f}% ({}/{})'
     for batch_idx, (inputs, targets) in enumerate(testloader):
         if use_cuda:
             inputs, targets = inputs.cuda(), targets.cuda()
@@ -136,8 +147,7 @@ def test(net, criterion, optimizer, testloader, epoch, use_cuda, logf=None):
         total += targets.size(0)
         correct += predicted.eq(targets.data).cpu().sum()
 
-        progress_bar(batch_idx, len(testloader), 'Loss: %.3f | Acc: %.3f%% (%d/%d)'
-            % (test_loss/(batch_idx+1), 100.*correct/total, correct, total))
+        progress_bar(batch_idx, len(testloader), logging_template.format(test_loss/(batch_idx+1), 100.*correct/total, correct, total))
 
     # Save checkpoint.
     acc = 100.*correct/total
@@ -152,15 +162,15 @@ def test(net, criterion, optimizer, testloader, epoch, use_cuda, logf=None):
         os.mkdir('checkpoint')
     torch.save(state, './checkpoint/ckpt.t7')
 
-    if logf is not None:
-        logf.write("Test: Loss {:.6f} | ACC {:.6f}\n".format(test_loss/(batch_idx+1), 100.*correct/total))
+    if logger is not None:
+        logger.info("Testing  epoch {}: ".format(epoch) + logging_template.format(test_loss/(batch_idx+1), 100.*correct/total, correct, total))
 
 
 def main():
 
     args = parse_args()
 
-    logf = prepare_log(args.log_path)
+    logger = prepare_log(args.log_path)
 
     use_cuda = torch.cuda.is_available()
 
@@ -181,10 +191,8 @@ def main():
 
     for epoch in range(start_epoch, 350):
         lr_scheduler.step(epoch=epoch)
-        train(net, criterion, optimizer, trainloader, epoch, use_cuda)
-        test(net, criterion, optimizer, testloader, epoch, use_cuda)
-
-    logf.close()
+        train(net, criterion, optimizer, trainloader, epoch, use_cuda, logger)
+        test(net, criterion, optimizer, testloader, epoch, use_cuda, logger)
 
 
 if __name__ == '__main__':
