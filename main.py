@@ -45,7 +45,7 @@ def prepare_log(log_path):
     return logger
 
 
-def preapre_data(data_path, dataset):
+def preapre_data(data_path, dataset, logger=None):
     if dataset != 'cifar10' and dataset != 'cifar100':
         print("Invalid dataset: {}".format(dataset))
         sys.exit(1)
@@ -101,16 +101,17 @@ def preapre_data(data_path, dataset):
     return trainloader, transform_train, testloader, transform_test, classes
 
 
-def prepare_model(num_classes=-1):
+def prepare_model(num_classes=-1, logger=None):
     if not os.path.exists('./checkpoint'):
         os.mkdir('./checkpoint')
 
+    message = []
     if os.path.exists('./checkpoint/ckpt.t7'):
         checkpoint = torch.load('./checkpoint/ckpt.t7')
         net = checkpoint['net']
         start_epoch = checkpoint['epoch']
         acc = checkpoint['acc']
-        print("Restoring from checkpoint of epoch {} with acc {}".format(start_epoch, acc))
+        message.append("Restoring from checkpoint of epoch {} with acc {}".format(start_epoch, acc))
     else:
         # net = VGG('VGG19')
         net = ResNet18(num_classes=num_classes)
@@ -125,7 +126,13 @@ def prepare_model(num_classes=-1):
         # net = SENet18()
         start_epoch = -1
         acc = 0.
-        print("Traing from scratch")
+        message.append("Training from scratch")
+
+    for mes in message:
+        if logger is not None:
+            logger.info(mes)
+        else:
+            print(mes)
 
     return net, start_epoch + 1, acc
 
@@ -157,7 +164,7 @@ def train(net, criterion, optimizer, trainloader, epoch, use_cuda, logger=None):
         progress_bar(batch_idx, len(trainloader), logging_template.format(train_loss/(batch_idx+1), 100.*correct/total, correct, total, lrs))
 
     if logger is not None:
-        logger.info("Training epoch {}: ".format(epoch) + logging_template.format(train_loss/(batch_idx+1), 100.*correct/total, correct, total, lrs))
+        logger.info("Training epoch {:5} | ".format(epoch) + logging_template.format(train_loss/(batch_idx+1), 100.*correct/total, correct, total, lrs))
 
 
 def test(net, criterion, optimizer, testloader, epoch, use_cuda, logger=None):
@@ -194,7 +201,7 @@ def test(net, criterion, optimizer, testloader, epoch, use_cuda, logger=None):
     torch.save(state, './checkpoint/ckpt.t7')
 
     if logger is not None:
-        logger.info("Testing  epoch {}: ".format(epoch) + logging_template.format(test_loss/(batch_idx+1), 100.*correct/total, correct, total))
+        logger.info("Testing  epoch {:5} | ".format(epoch) + logging_template.format(test_loss/(batch_idx+1), 100.*correct/total, correct, total))
 
 
 def main():
@@ -209,7 +216,7 @@ def main():
     trainloader, transform_train, testloader, transform_test, classes = preapre_data(args.data_path, args.dataset)
 
     # prepare model
-    net, start_epoch, _ = prepare_model(num_classes=len(classes))
+    net, start_epoch, _ = prepare_model(num_classes=len(classes), logger=logger)
 
     if use_cuda:
         net.cuda()
