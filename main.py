@@ -25,6 +25,7 @@ def parse_args():
     parser.add_argument('--data_path', type=str, help='Path for cifar100')
     parser.add_argument('--log_path', type=str, help='Path for logging')
     parser.add_argument('--dataset', type=str, help='cifar10 | cifar100')
+    parser.add_argument('--model_name', type=str, default='ResNet18', help='Model structure name')
     args = parser.parse_args()
     return args
 
@@ -101,7 +102,7 @@ def preapre_data(data_path, dataset, logger=None):
     return trainloader, transform_train, testloader, transform_test, classes
 
 
-def prepare_model(num_classes=-1, logger=None):
+def prepare_model(num_classes=-1, model_name='ResNet18', logger=None):
     if not os.path.exists('./checkpoint'):
         os.mkdir('./checkpoint')
 
@@ -113,17 +114,30 @@ def prepare_model(num_classes=-1, logger=None):
         acc = checkpoint['acc']
         message.append("Restoring from checkpoint of epoch {} with acc {}".format(start_epoch, acc))
     else:
-        # net = VGG('VGG19')
-        net = ResNet18(num_classes=num_classes)
-        # net = PreActResNet18()
-        # net = GoogLeNet()
-        # net = DenseNet121()
-        # net = ResNeXt29_2x64d()
-        # net = MobileNet()
-        # net = MobileNetV2()
-        # net = DPN92()
-        # net = ShuffleNetG2()
-        # net = SENet18()
+        if model_name == 'VGG19':
+            net = VGG('VGG19')
+        elif model_name == 'ResNet18':
+            net = ResNet18(num_classes=num_classes)
+        elif model_name == 'ExpNetV1':
+            net = ExpNetV1(num_classes=num_classes)
+        elif model_name == 'PreActResNet18':
+            net = PreActResNet18()
+        elif model_name == 'GoogLeNet':
+            net = GoogLeNet()
+        elif model_name == 'DenseNet121':
+            net = DenseNet121()
+        elif model_name == 'ResNeXt29_2x64d':
+            net = ResNeXt29_2x64d()
+        elif model_name == 'MobileNet':
+            net = MobileNet()
+        elif model_name == 'MobileNetV2':
+            net = MobileNetV2()
+        elif model_name == 'DPN92':
+            net = DPN92()
+        elif model_name == 'ShuffleNetG2':
+            net = ShuffleNetG2()
+        elif model_name == 'SENet18':
+            net = SENet18()
         start_epoch = -1
         acc = 0.
         message.append("Training from scratch")
@@ -216,7 +230,7 @@ def main():
     trainloader, transform_train, testloader, transform_test, classes = preapre_data(args.data_path, args.dataset)
 
     # prepare model
-    net, start_epoch, _ = prepare_model(num_classes=len(classes), logger=logger)
+    net, start_epoch, _ = prepare_model(num_classes=len(classes), model_name=args.model_name, logger=logger)
 
     if use_cuda:
         net.cuda()
